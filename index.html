@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Mapper</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- QRCode.js for QR Code generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <!-- Google Maps API (replace YOUR_API_KEY with your actual key) -->
+    <!-- The callback function `initMap` will be called once the API is loaded. -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initMap"></script>
+    <style>
+        /* Base styles */
+        :root {
+            --primary-color: #4CAF50; /* Green */
+            --secondary-color: #2196F3; /* Blue */
+            --accent-color: #FFC107; /* Amber */
+            --background-light: #f4f7f6;
+            --background-dark: #e0e4e3;
+            --text-color: #333;
+            --border-color: #ddd;
+            --card-bg: #fff;
+            --shadow-light: rgba(0, 0, 0, 0.1);
+            --shadow-medium: rgba(0, 0, 0, 0.2);
+            --day-header-bg: #e8f5e9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-light);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+        }
+
+        /* Utility classes */
+        .flex-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rounded-lg {
+            border-radius: 0.75rem; /* 12px */
+        }
+
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px var(--shadow-light), 0 2px 4px -1px var(--shadow-light);
+        }
+
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px var(--shadow-medium), 0 4px 6px -2px var(--shadow-medium);
+        }
+
+        .p-4 { padding: 1rem; }
+        .p-2 { padding: 0.5rem; }
+        .m-2 { margin: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .w-full { width: 100%; }
+        .text-sm { font-size: 0.875rem; }
+        .text-lg { font-size: 1.125rem; }
+        .font-semibold { font-weight: 600; }
+        .text-gray-600 { color: #4b5563; }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px var(--shadow-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+        }
+
+        header h1 i {
+            margin-right: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .header-actions button {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .header-actions button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Main layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1.2fr; /* Left, Middle, Right panels */
+            gap: 1rem;
+            padding: 1rem;
+            flex-grow: 1;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 8px var(--shadow-light);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .panel-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Left Panel: Search & Saved Places */
+        .left-panel {
+            grid-column: 1;
+        }
+
+        .search-section, .saved-places-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-input-container input {
+            flex-grow: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .search-input-container button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .search-input-container button:hover {
+            background-color: #1976D2;
+        }
+
+        .place-card {
+            background-color: var(--background-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: grab;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+
+        .place-card:active {
+            cursor: grabbing;
+            transform: scale(1.02);
+            box-shadow: 0 6px 12px var(--shadow-medium);
+        }
+
+        .place-card.dragging {
+            opacity: 0.5;
+        }
+
+        .place-card-icon {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .place-card-info {
+            flex-grow: 1;
+        }
+
+        .place-card-name {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .place-card-type {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .place-card .remove-btn {
+            background: none;
+            border: none;
+            color: #ef4444; /* Red */
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.2rem;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .place-card .remove-btn:hover {
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Middle Panel: Itinerary Timeline */
+        .middle-panel {
+            grid-column: 2;
+            overflow-y: auto;
+        }
+
+        .day-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .day-header {
+            background-color: var(--day-header-bg);
+            padding: 0.8rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .day-header .day-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .day-header .day-title i {
+            transition: transform 0.3s ease;
+        }
+
+        .day-header.collapsed .day-title i {
+            transform: rotate(-90deg);
+        }
+
+        .day-header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .day-header-actions button {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--primary-color);
+            transition: color 0.2s ease;
+        }
+
+        .day-header-actions button:hover {
+            color: var(--secondary-color);
+        }
+
+        .day-content {
+            padding: 1rem;
+            display: block;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            max-height: 1000px; /* Large enough to show content */
+            overflow: hidden;
+        }
+
+        .day-content.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        .day-timeline {
+            min-height: 80px; /* Ensure droppable area */
+            border: 2px dashed var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .day-timeline.drag-over {
+            background-color: var(--background-dark);
+            border-color: var(--secondary-color);
+        }
+
+        .itinerary-item {
+            background-color: var(--card-bg);
+            border: 1px solid var(--primary-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: grab;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+
+        .itinerary-item:active {
+            cursor: grabbing;
+            transform: scale(1.02);
+            box-shadow: 0 6px 12px var(--shadow-medium);
+        }
+
+        .itinerary-item.dragging {
+            opacity: 0.5;
+        }
+
+        .itinerary-item .remove-btn {
+            background: none;
+            border: none;
+            color: #ef4444; /* Red */
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.2rem;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        .itinerary-item .remove-btn:hover {
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        .itinerary-item-info {
+            flex-grow: 1;
+        }
+
+        .itinerary-item-name {
+            font-weight: 600;
+        }
+
+        .itinerary-item-meta {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .itinerary-item-meta input {
+            width: 80px;
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.3rem;
+        }
+
+        .itinerary-item-meta select {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.3rem;
+            background-color: white;
+        }
+
+        .travel-estimate {
+            background-color: #f0f4f8; /* Light blue-gray */
+            border-left: 3px solid var(--secondary-color);
+            padding: 0.5rem 1rem;
+            margin-top: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .travel-estimate i {
+            color: var(--secondary-color);
+        }
+
+        .day-summary {
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed var(--border-color);
+            font-size: 0.9rem;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .day-summary .budget-summary, .day-summary .weather-summary {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .day-summary .weather-warning {
+            color: #D32F2F; /* Red */
+            font-weight: 500;
+        }
+
+        .day-summary .emoji-strip {
+            margin-top: 5px;
+            font-size: 1.2rem;
+        }
+
+        /* Right Panel: Map, Budget, Weather */
+        .right-panel {
+            grid-column: 3;
+            position: relative;
+            overflow: hidden; /* For map */
+        }
+
+        #map {
+            width: 100%;
+            height: 300px; /* Default height */
+            background-color: #e0e0e0;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            position: sticky;
+            top: 1rem; /* Stick to the top of the panel */
+            box-shadow: 0 2px 8px var(--shadow-light);
+            transition: height 0.3s ease;
+        }
+
+        #map.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            border-radius: 0;
+        }
+
+        .map-toggle-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            z-index: 1001;
+            transition: background-color 0.3s ease;
+        }
+
+        .map-toggle-btn:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .budget-tracker, .weather-forecast, .recommendations-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .budget-summary-total {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            color: var(--secondary-color);
+        }
+
+        #budgetPieChart {
+            width: 100%;
+            max-width: 200px;
+            height: 200px;
+            margin: 1rem auto;
+            display: block;
+        }
+
+        .recommendation-card {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            position: relative;
+        }
+
+        .recommendation-card .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .recommendation-card .add-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            align-self: flex-end;
+            font-size: 0.8rem;
+        }
+
+        /* Modals */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 2000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: auto;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px var(--shadow-medium);
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+
+        .modal-buttons button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .modal-buttons .confirm-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .modal-buttons .confirm-btn:hover {
+            background-color: #388E3C;
+        }
+
+        .modal-buttons .cancel-btn {
+            background-color: #e0e0e0;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-buttons .cancel-btn:hover {
+            background-color: #d0d0d0;
+        }
+
+        #placeDetailsModal img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        #qrCodeContainer {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        /* Mobile Drawer */
+        .mobile-drawer {
+            display: none; /* Hidden by default on desktop */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50vh; /* Half screen height */
+            background-color: var(--card-bg);
+            box-shadow: 0 -4px 12px var(--shadow-medium);
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            z-index: 900;
+            padding: 1rem;
+            flex-direction: column;
+        }
+
+        .mobile-drawer.open {
+            transform: translateY(0);
+        }
+
+        .drawer-handle {
+            width: 50px;
+            height: 6px;
+            background-color: #ccc;
+            border-radius: 3px;
+            margin: 0 auto 1rem auto;
+            cursor: grab;
+        }
+
+        .drawer-content {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr 1fr; /* Two columns for tablet */
+            }
+
+            .left-panel {
+                grid-column: 1;
+                grid-row: 1;
+            }
+
+            .middle-panel {
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .right-panel {
+                grid-column: 1 / span 2; /* Spans both columns */
+                grid-row: 2;
+            }
+
+            #map {
+                height: 400px; /* Adjust map height for tablets */
+            }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1rem;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 1rem;
+            }
+
+            .main-container {
+                grid-template-columns: 1fr; /* Single column for mobile */
+                padding: 0.5rem;
+            }
+
+            .panel {
+                padding: 0.75rem;
+            }
+
+            .left-panel, .right-panel {
+                display: none; /* Hidden on mobile, content moved to drawer */
+            }
+
+            .middle-panel {
+                grid-column: 1;
+                grid-row: 1;
+                height: calc(100vh - 120px); /* Adjust height for header/drawer */
+            }
+
+            .mobile-drawer {
+                display: flex; /* Show drawer on mobile */
+            }
+
+            #map {
+                height: 250px; /* Smaller map on mobile */
+                position: relative; /* Not sticky in mobile drawer */
+                top: auto;
+            }
+        }
+
+        /* Undo/Redo Buttons */
+        .history-controls {
+            display: flex;
+            gap: 10px;
+            margin: 1rem auto;
+            justify-content: center;
+        }
+
+        .history-controls button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .history-controls button:disabled {
+            background-color: #90CAF9; /* Lighter blue */
+            cursor: not-allowed;
+        }
+
+        .history-controls button:hover:not(:disabled) {
+            background-color: #1976D2;
+        }
+
+        /* AI Suggestion Button */
+        .ai-suggestion-section {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px dashed var(--border-color);
+            text-align: center;
+        }
+
+        .ai-suggestion-section input {
+            width: calc(100% - 20px);
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .ai-suggestion-section button {
+            background-color: #8E24AA; /* Purple */
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .ai-suggestion-section button:hover {
+            background-color: #6A1B9A;
+        }
+
+        .loading-spinner {
+            display: none; /* Hidden by default */
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1><i class="fas fa-map-marked-alt"></i> Trip Mapper</h1>
+        <div class="header-actions">
+            <button id="saveTripBtn"><i class="fas fa-save"></i> Save Trip</button>
+            <button id="loadTripBtn"><i class="fas fa-folder-open"></i> Load Trip</button>
+            <button id="downloadPdfBtn"><i class="fas fa-file-pdf"></i> Download PDF</button>
+            <button id="shareTripBtn"><i class="fas fa-share-alt"></i> Share Trip</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Panel: Search & Saved Places -->
+        <div class="panel left-panel">
+            <div class="search-section">
+                <div class="panel-header">Search Places</div>
+                <div class="search-input-container">
+                    <input type="text" id="placeSearchInput" placeholder="Search for places...">
+                    <button id="searchPlaceBtn"><i class="fas fa-search"></i></button>
+                </div>
+                <div id="searchResults" class="scrollable-content">
+                    <!-- Search results will be dynamically added here -->
+                </div>
+            </div>
+
+            <div class="saved-places-section">
+                <div class="panel-header">Saved Places</div>
+                <div id="savedPlacesList" class="scrollable-content">
+                    <!-- Saved places will be dynamically added here -->
+                    <p class="text-sm text-gray-600">Drag places from here to your itinerary.</p>
+                </div>
+            </div>
+
+            <div class="ai-suggestion-section">
+                <div class="panel-header">AI Itinerary Suggestion</div>
+                <input type="text" id="aiSuggestionCityInput" placeholder="e.g., Goa">
+                <button id="aiSuggestBtn">
+                    <i class="fas fa-magic"></i> Auto-fill Trip
+                    <div class="loading-spinner" id="aiLoadingSpinner"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Middle Panel: Itinerary Timeline -->
+        <div class="panel middle-panel">
+            <div class="panel-header">Your Itinerary</div>
+            <div class="history-controls">
+                <button id="undoBtn" disabled><i class="fas fa-undo"></i> Undo</button>
+                <button id="redoBtn" disabled><i class="fas fa-redo"></i> Redo</button>
+            </div>
+            <div id="itineraryTimeline">
+                <!-- Day panels will be dynamically added here -->
+            </div>
+            <button id="addDayBtn" class="w-full p-2 mt-4 rounded-lg" style="background-color: var(--primary-color); color: white; border: none; cursor: pointer; transition: background-color 0.3s ease;">
+                <i class="fas fa-plus"></i> Add New Day
+            </button>
+        </div>
+
+        <!-- Right Panel: Map Preview, Budget, Weather, Recommendations -->
+        <div class="panel right-panel">
+            <div class="panel-header">Map Preview</div>
+            <div id="map"></div>
+            <button id="mapToggleFullscreen" class="map-toggle-btn"><i class="fas fa-expand"></i></button>
+
+            <div class="budget-tracker">
+                <div class="panel-header">Budget Tracker</div>
+                <div class="flex-between mb-2">
+                    <span>Total Estimated Cost:</span>
+                    <span id="totalBudget" class="budget-summary-total">₹0.00</span>
+                </div>
+                <canvas id="budgetPieChart"></canvas>
+            </div>
+
+            <div class="weather-forecast">
+                <div class="panel-header">Weather Forecast</div>
+                <div id="weatherDisplay">
+                    <p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>
+                </div>
+            </div>
+
+            <div class="recommendations-section">
+                <div class="panel-header">Smart Recommendations</div>
+                <div id="recommendationsList">
+                    <p class="text-sm text-gray-600">Recommendations based on your itinerary will appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Place Details Modal -->
+    <div id="placeDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('placeDetailsModal')">&times;</span>
+            <h2 id="placeDetailsName" class="text-lg font-semibold mb-2"></h2>
+            <img id="placeDetailsImage" src="" alt="Place Image" class="mb-2">
+            <p id="placeDetailsRating" class="text-sm"></p>
+            <p id="placeDetailsDescription" class="text-sm text-gray-600"></p>
+        </div>
+    </div>
+
+    <!-- Share Trip Modal -->
+    <div id="shareTripModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('shareTripModal')">&times;</span>
+            <h2 class="text-lg font-semibold mb-4">Share Your Trip</h2>
+            <p>Copy the link below or scan the QR code to share your trip plan:</p>
+            <input type="text" id="shareLinkInput" class="w-full p-2 rounded-lg mt-2 mb-4" readonly>
+            <button class="w-full p-2 rounded-lg" style="background-color: var(--secondary-color); color: white; border: none; cursor: pointer;" onclick="copyShareLink()">Copy Link</button>
+            <div id="qrCodeContainer" class="mt-4"></div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h2 id="confirmationTitle" class="text-lg font-semibold mb-4">Confirm Action</h2>
+            <p id="confirmationMessage"></p>
+            <div class="modal-buttons">
+                <button id="confirmYesBtn" class="confirm-btn">Yes</button>
+                <button id="confirmNoBtn" class="cancel-btn">No</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Drawer -->
+    <div id="mobileDrawer" class="mobile-drawer">
+        <div class="drawer-handle"></div>
+        <div class="drawer-content">
+            <div class="search-section">
+                <div class="panel-header">Search Places</div>
+                <div class="search-input-container">
+                    <input type="text" id="mobilePlaceSearchInput" placeholder="Search for places...">
+                    <button id="mobileSearchPlaceBtn"><i class="fas fa-search"></i></button>
+                </div>
+                <div id="mobileSearchResults" class="scrollable-content"></div>
+            </div>
+
+            <div class="saved-places-section">
+                <div class="panel-header">Saved Places</div>
+                <div id="mobileSavedPlacesList" class="scrollable-content">
+                    <p class="text-sm text-gray-600">Drag places from here to your itinerary.</p>
+                </div>
+            </div>
+
+            <div class="budget-tracker">
+                <div class="panel-header">Budget Tracker</div>
+                <div class="flex-between mb-2">
+                    <span>Total Estimated Cost:</span>
+                    <span id="mobileTotalBudget" class="budget-summary-total">₹0.00</span>
+                </div>
+                <canvas id="mobileBudgetPieChart"></canvas>
+            </div>
+
+            <div class="weather-forecast">
+                <div class="panel-header">Weather Forecast</div>
+                <div id="mobileWeatherDisplay">
+                    <p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>
+                </div>
+            </div>
+
+            <div class="recommendations-section">
+                <div class="panel-header">Smart Recommendations</div>
+                <div id="mobileRecommendationsList">
+                    <p class="text-sm text-gray-600">Recommendations based on your itinerary will appear here.</p>
+                </div>
+            </div>
+
+            <div class="ai-suggestion-section">
+                <div class="panel-header">AI Itinerary Suggestion</div>
+                <input type="text" id="mobileAiSuggestionCityInput" placeholder="e.g., Goa">
+                <button id="mobileAiSuggestBtn">
+                    <i class="fas fa-magic"></i> Auto-fill Trip
+                    <div class="loading-spinner" id="mobileAiLoadingSpinner"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // Global variables for Firebase (provided by Canvas environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Firebase imports (will be initialized later once the script runs)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let app, db, auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        // Initialize Firebase and set up auth listener
+        const initFirebase = async () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Authenticated user:", userId);
+                    } else {
+                        // If no user, sign in anonymously
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                            userId = auth.currentUser.uid;
+                            console.log("Signed in anonymously. User ID:", userId);
+                        } catch (error) {
+                            console.error("Error signing in anonymously:", error);
+                            // Fallback if anonymous sign-in also fails (e.g., no internet)
+                            userId = crypto.randomUUID(); // Use a random ID as a last resort
+                            console.warn("Using a random UUID as user ID due to auth failure:", userId);
+                        }
+                    }
+                    isAuthReady = true;
+                    // Now that auth is ready, load trip data
+                    loadTripFromFirestore();
+                });
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                // Fallback if Firebase initialization fails
+                userId = crypto.randomUUID(); // Use a random ID as a last resort
+                isAuthReady = true;
+                console.warn("Firebase initialization failed. Using a random UUID as user ID:", userId);
+                loadTripFromLocalStorage(); // Try loading from local storage as a fallback
+            }
+        };
+
+        // Call initFirebase when the script loads
+        initFirebase();
+
+
+        // --- Global State ---
+        let tripPlan = {
+            days: [], // Array of arrays, each inner array is a day's itinerary
+            savedPlaces: [], // Array of saved place objects
+        };
+
+        let map; // Google Map instance
+        let mapMarkers = [];
+        let mapPolylines = [];
+        let mapInfoWindow;
+
+        const HISTORY_LIMIT = 10;
+        let history = [];
+        let historyIndex = -1;
+
+        let currentDraggedElement = null; // Stores the element being dragged
+        let currentDraggedData = null; // Stores the data of the element being dragged (place object)
+        let currentDragSourceDayIndex = -1; // For reordering within itinerary or moving from day to day
+
+        // --- DOM Elements ---
+        const itineraryTimeline = document.getElementById('itineraryTimeline');
+        const addDayBtn = document.getElementById('addDayBtn');
+        const placeSearchInput = document.getElementById('placeSearchInput');
+        const searchPlaceBtn = document.getElementById('searchPlaceBtn');
+        const searchResultsDiv = document.getElementById('searchResults');
+        const savedPlacesList = document.getElementById('savedPlacesList');
+        const mapDiv = document.getElementById('map');
+        const mapToggleFullscreenBtn = document.getElementById('mapToggleFullscreen');
+        const totalBudgetSpan = document.getElementById('totalBudget');
+        const budgetPieChartCanvas = document.getElementById('budgetPieChart');
+        const weatherDisplay = document.getElementById('weatherDisplay');
+        const recommendationsList = document.getElementById('recommendationsList');
+        const saveTripBtn = document.getElementById('saveTripBtn');
+        const loadTripBtn = document.getElementById('loadTripBtn');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const shareTripBtn = document.getElementById('shareTripBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const aiSuggestionCityInput = document.getElementById('aiSuggestionCityInput');
+        const aiSuggestBtn = document.getElementById('aiSuggestBtn');
+        const aiLoadingSpinner = document.getElementById('aiLoadingSpinner');
+
+        // Modals
+        const placeDetailsModal = document.getElementById('placeDetailsModal');
+        const placeDetailsName = document.getElementById('placeDetailsName');
+        const placeDetailsImage = document.getElementById('placeDetailsImage');
+        const placeDetailsRating = document.getElementById('placeDetailsRating');
+        const placeDetailsDescription = document.getElementById('placeDetailsDescription');
+        const shareTripModal = document.getElementById('shareTripModal');
+        const shareLinkInput = document.getElementById('shareLinkInput');
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        const confirmationModal = document.getElementById('confirmationModal');
+        const confirmationTitle = document.getElementById('confirmationTitle');
+        const confirmationMessage = document.getElementById('confirmationMessage');
+        const confirmYesBtn = document.getElementById('confirmYesBtn');
+        const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+        // Mobile Drawer elements
+        const mobileDrawer = document.getElementById('mobileDrawer');
+        const drawerHandle = document.querySelector('.drawer-handle');
+        const mobilePlaceSearchInput = document.getElementById('mobilePlaceSearchInput');
+        const mobileSearchPlaceBtn = document.getElementById('mobileSearchPlaceBtn');
+        const mobileSearchResults = document.getElementById('mobileSearchResults');
+        const mobileSavedPlacesList = document.getElementById('mobileSavedPlacesList');
+        const mobileTotalBudget = document.getElementById('mobileTotalBudget');
+        const mobileBudgetPieChart = document.getElementById('mobileBudgetPieChart');
+        const mobileWeatherDisplay = document.getElementById('mobileWeatherDisplay');
+        const mobileRecommendationsList = document.getElementById('mobileRecommendationsList');
+        const mobileAiSuggestionCityInput = document.getElementById('mobileAiSuggestionCityInput');
+        const mobileAiSuggestBtn = document.getElementById('mobileAiSuggestBtn');
+        const mobileAiLoadingSpinner = document.getElementById('mobileAiLoadingSpinner');
+
+
+        // --- Helper Functions ---
+
+        /**
+         * Generates a unique ID.
+         * @returns {string} A unique ID.
+         */
+        function generateUniqueId() {
+            return '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        /**
+         * Opens a modal.
+         * @param {string} modalId - The ID of the modal to open.
+         */
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        /**
+         * Closes a modal.
+         * @param {string} modalId - The ID of the modal to close.
+         */
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        /**
+         * Shows a confirmation dialog.
+         * @param {string} title - The title of the confirmation.
+         * @param {string} message - The message to display.
+         * @returns {Promise<boolean>} A promise that resolves to true if confirmed, false otherwise.
+         */
+        function showConfirmation(title, message) {
+            return new Promise((resolve) => {
+                confirmationTitle.textContent = title;
+                confirmationMessage.textContent = message;
+                openModal('confirmationModal');
+
+                const onConfirm = () => {
+                    closeModal('confirmationModal');
+                    confirmYesBtn.removeEventListener('click', onConfirm);
+                    confirmNoBtn.removeEventListener('click', onCancel);
+                    resolve(true);
+                };
+
+                const onCancel = () => {
+                    closeModal('confirmationModal');
+                    confirmYesBtn.removeEventListener('click', onConfirm);
+                    confirmNoBtn.removeEventListener('click', onCancel);
+                    resolve(false);
+                };
+
+                confirmYesBtn.addEventListener('click', onConfirm);
+                confirmNoBtn.addEventListener('click', onCancel);
+            });
+        }
+
+        /**
+         * Mocks an API call to Google Places Autocomplete.
+         * @param {string} query - The search query.
+         * @returns {Promise<Array>} A promise resolving to an array of mock place results.
+         */
+        async function mockGooglePlacesAutocomplete(query) {
+            console.log(`Mocking Google Places Autocomplete for: ${query}`);
+            const mockPlaces = [
+                { id: generateUniqueId(), name: 'Eiffel Tower', type: 'landmark', lat: 48.8584, lng: 2.2945, rating: 4.7, description: 'Iconic iron lattice tower in Paris.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Eiffel+Tower' },
+                { id: generateUniqueId(), name: 'Louvre Museum', type: 'museum', lat: 48.8606, lng: 2.3376, rating: 4.8, description: 'World-famous art museum in Paris, home to the Mona Lisa.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Louvre+Museum' },
+                { id: generateUniqueId(), name: 'Notre Dame Cathedral', type: 'landmark', lat: 48.8529, lng: 2.3499, rating: 4.6, description: 'Historic Catholic cathedral in Paris.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Notre+Dame' },
+                { id: generateUniqueId(), name: 'Colosseum', type: 'landmark', lat: 41.8902, lng: 12.4922, rating: 4.7, description: 'Ancient Roman amphitheatre in Rome.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Colosseum' },
+                { id: generateUniqueId(), name: 'Trevi Fountain', type: 'landmark', lat: 41.9009, lng: 12.4833, rating: 4.8, description: 'Baroque fountain in the Trevi district in Rome, Italy.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Trevi+Fountain' },
+                { id: generateUniqueId(), name: 'Times Square', type: 'landmark', lat: 40.7580, lng: -73.9855, rating: 4.5, description: 'Major commercial intersection, tourist destination, entertainment center, and neighborhood in the Midtown Manhattan section of New York City.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Times+Square' },
+                { id: generateUniqueId(), name: 'Central Park', type: 'park', lat: 40.7829, lng: -73.9654, rating: 4.9, description: 'An urban park in New York City.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Central+Park' },
+                { id: generateUniqueId(), name: 'Golden Gate Bridge', type: 'landmark', lat: 37.8199, lng: -122.4783, rating: 4.8, description: 'A suspension bridge spanning the Golden Gate, the one-mile-wide strait connecting San Francisco Bay and the Pacific Ocean.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Golden+Gate' },
+                { id: generateUniqueId(), name: 'Sydney Opera House', type: 'landmark', lat: -33.8568, lng: 151.2153, rating: 4.7, description: 'Multi-venue performing arts centre in Sydney, New South Wales, Australia.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Sydney+Opera+House' },
+                { id: generateUniqueId(), name: 'Burj Khalifa', type: 'landmark', lat: 25.1972, lng: 55.2744, rating: 4.8, description: 'The tallest building in the world, located in Dubai, United Arab Emirates.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Burj+Khalifa' },
+                { id: generateUniqueId(), name: 'Goa Beach', type: 'beach', lat: 15.2993, lng: 74.1240, rating: 4.5, description: 'Beautiful beaches in Goa, India.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Goa+Beach' },
+                { id: generateUniqueId(), name: 'Goa Fort', type: 'historic_site', lat: 15.4989, lng: 73.8080, rating: 4.2, description: 'Historic forts in Goa, India.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Goa+Fort' },
+                { id: generateUniqueId(), name: 'Goa Market', type: 'market', lat: 15.5908, lng: 73.8193, rating: 4.0, description: 'Vibrant markets in Goa, India.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Goa+Market' },
+                { id: generateUniqueId(), name: 'Goa Waterfall', type: 'natural_attraction', lat: 15.3146, lng: 74.2407, rating: 4.6, description: 'Scenic waterfalls in Goa, India.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Goa+Waterfall' },
+            ];
+
+            const filtered = mockPlaces.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            return new Promise(resolve => setTimeout(() => resolve(filtered), 300)); // Simulate network delay
+        }
+
+        /**
+         * Mocks an API call to Google Maps Distance Matrix.
+         * @param {Object} origin - {lat, lng}
+         * @param {Object} destination - {lat, lng}
+         * @returns {Promise<Object>} A promise resolving to mock distance and duration.
+         */
+        async function mockGoogleMapsDistanceMatrix(origin, destination) {
+            console.log(`Mocking Distance Matrix for: ${origin.lat},${origin.lng} to ${destination.lat},${destination.lng}`);
+            // Simple Euclidean distance approximation for mock data
+            const distance = Math.sqrt(Math.pow(origin.lat - destination.lat, 2) + Math.pow(origin.lng - destination.lng, 2)) * 100; // Arbitrary scaling
+            const duration = distance * 2; // Arbitrary duration based on distance
+
+            return new Promise(resolve => setTimeout(() => resolve({
+                distance: `${distance.toFixed(2)} km`,
+                duration: `${Math.round(duration)} min`
+            }), 200));
+        }
+
+        /**
+         * Mocks an API call to OpenWeatherMap.
+         * @param {Object} location - {lat, lng}
+         * @param {number} dayOffset - Day offset from current date (0 for today, 1 for tomorrow, etc.)
+         * @returns {Promise<Object>} A promise resolving to mock weather data.
+         */
+        async function mockOpenWeatherMap(location, dayOffset) {
+            console.log(`Mocking OpenWeatherMap for: ${location.lat},${location.lng} (Day +${dayOffset})`);
+            const weatherConditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Rainy', 'Thunderstorms', 'Snowy'];
+            const temperatures = [15, 20, 25, 30];
+            const warnings = {
+                'Rainy': 'Expect rain, consider indoor activities!',
+                'Snowy': 'Snowfall expected, dress warmly!',
+                'Thunderstorms': 'Heavy storms, stay safe indoors!'
+            };
+
+            const randomCondition = weatherConditions[Math.floor(Math.random() * weatherConditions.length)];
+            const randomTemp = temperatures[Math.floor(Math.random() * temperatures.length)];
+
+            return new Promise(resolve => setTimeout(() => resolve({
+                condition: randomCondition,
+                temperature: `${randomTemp}°C`,
+                icon: getWeatherIcon(randomCondition),
+                warning: warnings[randomCondition] || null
+            }), 200));
+        }
+
+        /**
+         * Gets a Font Awesome icon based on weather condition.
+         * @param {string} condition - Weather condition string.
+         * @returns {string} Font Awesome icon class.
+         */
+        function getWeatherIcon(condition) {
+            switch (condition) {
+                case 'Sunny': return 'fas fa-sun';
+                case 'Partly Cloudy': return 'fas fa-cloud-sun';
+                case 'Cloudy': return 'fas fa-cloud';
+                case 'Rainy': return 'fas fa-cloud-showers-heavy';
+                case 'Thunderstorms': return 'fas fa-bolt';
+                case 'Snowy': return 'fas fa-snowflake';
+                default: return 'fas fa-question';
+            }
+        }
+
+        /**
+         * Mocks an AI-powered itinerary suggestion using Gemini API.
+         * @param {string} city - The city for the trip.
+         * @returns {Promise<Array>} A promise resolving to a mock itinerary.
+         */
+        async function mockAIGenerateItinerary(city) {
+            console.log(`Mocking AI itinerary generation for: ${city}`);
+            aiLoadingSpinner.style.display = 'inline-block';
+            mobileAiLoadingSpinner.style.display = 'inline-block';
+
+            // Example structure for Gemini API call
+            let chatHistory = [];
+            const prompt = `Generate a fun 3-day itinerary for a trip to ${city}. For each day, list 3-4 popular places or activities. For each place, include a name, a type (e.g., 'beach', 'museum', 'restaurant'), and approximate latitude and longitude (can be general for the city if specific not known). Provide the output as a JSON array of objects, where each object represents a day and contains a 'day' number and an 'places' array. Each place object should have 'name', 'type', 'lat', and 'lng'.`;
+
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "day": { "type": "NUMBER" },
+                                "places": {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            "name": { "type": "STRING" },
+                                            "type": { "type": "STRING" },
+                                            "lat": { "type": "NUMBER" },
+                                            "lng": { "type": "NUMBER" }
+                                        },
+                                        "propertyOrdering": ["name", "type", "lat", "lng"]
+                                    }
+                                }
+                            },
+                            "propertyOrdering": ["day", "places"]
+                        }
+                    }
+                }
+            };
+
+            const apiKey = ""; // Leave as empty string for Canvas to provide
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    const parsedItinerary = JSON.parse(jsonString);
+
+                    // Convert the parsed itinerary into the tripPlan.days format
+                    const newDays = parsedItinerary.map(dayData => {
+                        return dayData.places.map(place => ({
+                            id: generateUniqueId(),
+                            name: place.name,
+                            type: place.type,
+                            lat: place.lat,
+                            lng: place.lng,
+                            cost: 0,
+                            category: 'other',
+                            rating: (Math.random() * (5 - 3) + 3).toFixed(1), // Mock rating
+                            description: `A suggested ${place.type} in ${city}.`, // Mock description
+                            imageUrl: `https://placehold.co/300x200/4CAF50/FFFFFF?text=${encodeURIComponent(place.name.substring(0, 15))}`
+                        }));
+                    });
+
+                    return newDays;
+                } else {
+                    console.error("AI API response structure unexpected:", result);
+                    return [];
+                }
+            } catch (error) {
+                console.error("Error calling AI API:", error);
+                // Fallback to hardcoded mock data if API call fails
+                return [
+                    [ // Day 1
+                        { id: generateUniqueId(), name: 'Baga Beach', type: 'beach', lat: 15.5562, lng: 73.7503, cost: 500, category: 'adventure', rating: 4.5, description: 'Famous beach in North Goa.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Baga+Beach' },
+                        { id: generateUniqueId(), name: 'Anjuna Flea Market', type: 'market', lat: 15.5702, lng: 73.7408, cost: 300, category: 'shopping', rating: 4.0, description: 'Weekly market with diverse goods.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Anjuna+Market' },
+                        { id: generateUniqueId(), name: 'Curlies Beach Shack', type: 'restaurant', lat: 15.5700, lng: 73.7390, cost: 800, category: 'food', rating: 4.2, description: 'Popular shack for food and nightlife.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Curlies' },
+                    ],
+                    [ // Day 2
+                        { id: generateUniqueId(), name: 'Dudhsagar Falls', type: 'natural_attraction', lat: 15.3146, lng: 74.2407, cost: 1200, category: 'adventure', rating: 4.6, description: 'Majestic four-tiered waterfall.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Dudhsagar' },
+                        { id: generateUniqueId(), name: 'Spice Plantations', type: 'farm', lat: 15.4099, lng: 74.0154, cost: 600, category: 'culture', rating: 4.3, description: 'Explore various spices and local culture.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Spice+Plantation' },
+                    ],
+                    [ // Day 3
+                        { id: generateUniqueId(), name: 'Fort Aguada', type: 'historic_site', lat: 15.4989, lng: 73.8080, cost: 200, category: 'culture', rating: 4.4, description: '17th-century Portuguese fort.', imageUrl: 'https://placehold.co/300x200/FFC107/FFFFFF?text=Fort+Aguada' },
+                        { id: generateUniqueId(), name: 'Calangute Beach', type: 'beach', lat: 15.5462, lng: 73.7588, cost: 0, category: 'adventure', rating: 4.3, description: 'Largest beach in North Goa.', imageUrl: 'https://placehold.co/300x200/4CAF50/FFFFFF?text=Calangute+Beach' },
+                        { id: generateUniqueId(), name: 'Goan Thali Restaurant', type: 'restaurant', lat: 15.5300, lng: 73.8000, cost: 700, category: 'food', rating: 4.5, description: 'Authentic Goan cuisine.', imageUrl: 'https://placehold.co/300x200/2196F3/FFFFFF?text=Goan+Thali' },
+                    ]
+                ];
+            } finally {
+                aiLoadingSpinner.style.display = 'none';
+                mobileAiLoadingSpinner.style.display = 'none';
+            }
+        }
+
+
+        /**
+         * Gets an emoji for a given place type.
+         * @param {string} type - The type of place.
+         * @returns {string} An emoji string.
+         */
+        function getTypeEmoji(type) {
+            switch (type.toLowerCase()) {
+                case 'beach': return '🏖️';
+                case 'museum': return '🏛️';
+                case 'restaurant': return '🍜';
+                case 'landmark': return '📍';
+                case 'park': return '🌳';
+                case 'shopping': return '🛍️';
+                case 'adventure': return '🎢';
+                case 'culture': return '�';
+                case 'historic_site': return '🏰';
+                case 'market': return ' bustling 🛍️';
+                case 'natural_attraction': return '🏞️';
+                case 'farm': return '🚜';
+                case 'food': return '🍔';
+                default: return '✨';
+            }
+        }
+
+        /**
+         * Renders a place card for search results or saved places.
+         * @param {Object} place - The place object.
+         * @param {boolean} isSaved - True if it's a saved place, false for search result.
+         * @returns {HTMLElement} The place card element.
+         */
+        function renderPlaceCard(place, isSaved = false) {
+            const card = document.createElement('div');
+            card.className = 'place-card rounded-lg shadow-md';
+            card.setAttribute('draggable', true);
+            card.dataset.id = place.id;
+            card.dataset.type = 'place'; // For drag-and-drop identification
+
+            card.innerHTML = `
+                <span class="place-card-icon">${getTypeEmoji(place.type)}</span>
+                <div class="place-card-info">
+                    <div class="place-card-name">${place.name}</div>
+                    <div class="place-card-type">${place.type.replace(/_/g, ' ')}</div>
+                </div>
+                ${isSaved ? `<button class="remove-btn" data-id="${place.id}"><i class="fas fa-times-circle"></i></button>` : ''}
+            `;
+
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.remove-btn')) {
+                    showPlaceDetails(place);
+                }
+            });
+
+            if (isSaved) {
+                card.querySelector('.remove-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent card click
+                    removeSavedPlace(place.id);
+                });
+            }
+
+            // Drag events
+            card.addEventListener('dragstart', (e) => {
+                currentDraggedElement = card;
+                currentDraggedData = place;
+                currentDragSourceDayIndex = -1; // Not from itinerary
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', place.id); // Set data for drop
+                card.classList.add('dragging');
+            });
+
+            card.addEventListener('dragend', () => {
+                currentDraggedElement.classList.remove('dragging');
+                currentDraggedElement = null;
+                currentDraggedData = null;
+                currentDragSourceDayIndex = -1;
+            });
+
+            // Touch events for drag-and-drop
+            let touchStartX, touchStartY;
+            card.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // Prevent scrolling
+                currentDraggedElement = card;
+                currentDraggedData = place;
+                currentDragSourceDayIndex = -1;
+                card.classList.add('dragging');
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+
+                // Create a ghost element for visual feedback
+                const ghost = card.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.zIndex = '9999';
+                ghost.style.opacity = '0.8';
+                ghost.style.width = card.offsetWidth + 'px';
+                ghost.style.height = card.offsetHeight + 'px';
+                ghost.style.pointerEvents = 'none'; // Make it non-interactive
+                ghost.style.transform = `translate(${e.touches[0].clientX - card.offsetWidth / 2}px, ${e.touches[0].clientY - card.offsetHeight / 2}px)`;
+                document.body.appendChild(ghost);
+                currentDraggedElement.ghost = ghost;
+            });
+
+            card.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // Prevent scrolling
+                if (currentDraggedElement && currentDraggedElement.ghost) {
+                    currentDraggedElement.ghost.style.transform = `translate(${e.touches[0].clientX - currentDraggedElement.offsetWidth / 2}px, ${e.touches[0].clientY - currentDraggedElement.offsetHeight / 2}px)`;
+
+                    // Simulate drag-over for droppable areas
+                    const targetElement = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+                    document.querySelectorAll('.day-timeline').forEach(timeline => {
+                        if (timeline.contains(targetElement) || timeline === targetElement) {
+                            timeline.classList.add('drag-over');
+                        } else {
+                            timeline.classList.remove('drag-over');
+                        }
+                    });
+                }
+            });
+
+            card.addEventListener('touchend', (e) => {
+                if (currentDraggedElement && currentDraggedElement.ghost) {
+                    document.body.removeChild(currentDraggedElement.ghost);
+                    currentDraggedElement.ghost = null;
+                }
+                card.classList.remove('dragging');
+
+                const dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+                document.querySelectorAll('.day-timeline').forEach(timeline => timeline.classList.remove('drag-over'));
+
+                if (dropTarget) {
+                    const dayTimeline = dropTarget.closest('.day-timeline');
+                    if (dayTimeline) {
+                        const dayIndex = parseInt(dayTimeline.dataset.dayIndex);
+                        addPlaceToItinerary(currentDraggedData, dayIndex);
+                    }
+                }
+                currentDraggedElement = null;
+                currentDraggedData = null;
+                currentDragSourceDayIndex = -1;
+            });
+
+            return card;
+        }
+
+        /**
+         * Renders an itinerary item within a day.
+         * @param {Object} place - The place object.
+         * @param {number} dayIndex - The index of the day.
+         * @param {number} placeIndex - The index of the place within the day.
+         * @returns {HTMLElement} The itinerary item element.
+         */
+        function renderItineraryItem(place, dayIndex, placeIndex) {
+            const item = document.createElement('div');
+            item.className = 'itinerary-item rounded-lg shadow-md';
+            item.setAttribute('draggable', true);
+            item.dataset.id = place.id;
+            item.dataset.dayIndex = dayIndex;
+            item.dataset.placeIndex = placeIndex;
+            item.dataset.type = 'itinerary-item'; // For drag-and-drop identification
+
+            item.innerHTML = `
+                <span class="place-card-icon">${getTypeEmoji(place.type)}</span>
+                <div class="itinerary-item-info">
+                    <div class="itinerary-item-name">${place.name}</div>
+                    <div class="itinerary-item-meta">
+                        <span>Cost: ₹<input type="number" class="item-cost-input" value="${place.cost || 0}" min="0" data-id="${place.id}" data-day-index="${dayIndex}"></span>
+                        <span>Category:
+                            <select class="item-category-select" data-id="${place.id}" data-day-index="${dayIndex}">
+                                <option value="other" ${place.category === 'other' ? 'selected' : ''}>Other</option>
+                                <option value="food" ${place.category === 'food' ? 'selected' : ''}>Food</option>
+                                <option value="adventure" ${place.category === 'adventure' ? 'selected' : ''}>Adventure</option>
+                                <option value="culture" ${place.category === 'culture' ? 'selected' : ''}>Culture</option>
+                                <option value="shopping" ${place.category === 'shopping' ? 'selected' : ''}>Shopping</option>
+                                <option value="transport" ${place.category === 'transport' ? 'selected' : ''}>Transport</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="travel-estimate" id="travelEstimate-${dayIndex}-${placeIndex}" style="display: none;">
+                        <i class="fas fa-route"></i> <span class="distance"></span>, <span class="duration"></span>
+                    </div>
+                </div>
+                <button class="remove-btn" data-id="${place.id}" data-day-index="${dayIndex}" data-place-index="${placeIndex}"><i class="fas fa-times-circle"></i></button>
+            `;
+
+            item.querySelector('.remove-btn').addEventListener('click', (e) => {
+                const dayIdx = parseInt(e.currentTarget.dataset.dayIndex);
+                const placeIdx = parseInt(e.currentTarget.dataset.placeIndex);
+                removePlaceFromItinerary(dayIdx, placeIdx);
+            });
+
+            item.querySelector('.item-cost-input').addEventListener('change', (e) => {
+                const dayIdx = parseInt(e.target.dataset.dayIndex);
+                const placeIdx = tripPlan.days[dayIdx].findIndex(p => p.id === e.target.dataset.id);
+                if (placeIdx !== -1) {
+                    tripPlan.days[dayIdx][placeIdx].cost = parseFloat(e.target.value) || 0;
+                    updateAllCalculations();
+                    saveTripState();
+                }
+            });
+
+            item.querySelector('.item-category-select').addEventListener('change', (e) => {
+                const dayIdx = parseInt(e.target.dataset.dayIndex);
+                const placeIdx = tripPlan.days[dayIdx].findIndex(p => p.id === e.target.dataset.id);
+                if (placeIdx !== -1) {
+                    tripPlan.days[dayIdx][placeIdx].category = e.target.value;
+                    updateAllCalculations();
+                    saveTripState();
+                }
+            });
+
+            // Drag events
+            item.addEventListener('dragstart', (e) => {
+                currentDraggedElement = item;
+                currentDraggedData = place;
+                currentDragSourceDayIndex = dayIndex;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', `${dayIndex},${placeIndex}`); // Data for reordering
+                item.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', () => {
+                currentDraggedElement.classList.remove('dragging');
+                currentDraggedElement = null;
+                currentDraggedData = null;
+                currentDragSourceDayIndex = -1;
+            });
+
+            // Touch events for drag-and-drop
+            let touchStartX, touchStartY;
+            item.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // Prevent scrolling
+                currentDraggedElement = item;
+                currentDraggedData = place;
+                currentDragSourceDayIndex = dayIndex;
+                item.classList.add('dragging');
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+
+                // Create a ghost element for visual feedback
+                const ghost = item.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.zIndex = '9999';
+                ghost.style.opacity = '0.8';
+                ghost.style.width = item.offsetWidth + 'px';
+                ghost.style.height = item.offsetHeight + 'px';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.transform = `translate(${e.touches[0].clientX - item.offsetWidth / 2}px, ${e.touches[0].clientY - item.offsetHeight / 2}px)`;
+                document.body.appendChild(ghost);
+                currentDraggedElement.ghost = ghost;
+            });
+
+            item.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // Prevent scrolling
+                if (currentDraggedElement && currentDraggedElement.ghost) {
+                    currentDraggedElement.ghost.style.transform = `translate(${e.touches[0].clientX - currentDraggedElement.offsetWidth / 2}px, ${e.touches[0].clientY - currentDraggedElement.offsetHeight / 2}px)`;
+
+                    // Simulate drag-over for droppable areas
+                    const targetElement = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+                    document.querySelectorAll('.day-timeline').forEach(timeline => {
+                        if (timeline.contains(targetElement) || timeline === targetElement) {
+                            timeline.classList.add('drag-over');
+                        } else {
+                            timeline.classList.remove('drag-over');
+                        }
+                    });
+                }
+            });
+
+            item.addEventListener('touchend', (e) => {
+                if (currentDraggedElement && currentDraggedElement.ghost) {
+                    document.body.removeChild(currentDraggedElement.ghost);
+                    currentDraggedElement.ghost = null;
+                }
+                item.classList.remove('dragging');
+
+                const dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+                document.querySelectorAll('.day-timeline').forEach(timeline => timeline.classList.remove('drag-over'));
+
+                if (dropTarget) {
+                    const dayTimeline = dropTarget.closest('.day-timeline');
+                    if (dayTimeline) {
+                        const targetDayIndex = parseInt(dayTimeline.dataset.dayIndex);
+                        const targetPlaceElement = dropTarget.closest('.itinerary-item');
+                        let targetPlaceIndex = -1;
+                        if (targetPlaceElement) {
+                            targetPlaceIndex = parseInt(targetPlaceElement.dataset.placeIndex);
+                        }
+
+                        if (currentDragSourceDayIndex !== -1) { // Item moved from another day or reordered within same day
+                            reorderPlaceInItinerary(currentDragSourceDayIndex, parseInt(item.dataset.placeIndex), targetDayIndex, targetPlaceIndex);
+                        } else { // Item moved from saved places (shouldn't happen here if logic is correct, but as fallback)
+                            addPlaceToItinerary(currentDraggedData, targetDayIndex, targetPlaceIndex);
+                        }
+                    }
+                }
+                currentDraggedElement = null;
+                currentDraggedData = null;
+                currentDragSourceDayIndex = -1;
+            });
+
+            return item;
+        }
+
+        /**
+         * Renders a day panel.
+         * @param {number} dayIndex - The index of the day.
+         * @param {Array} places - Array of places for the day.
+         * @returns {HTMLElement} The day panel element.
+         */
+        function renderDayPanel(dayIndex, places) {
+            const dayPanel = document.createElement('div');
+            dayPanel.className = 'day-panel rounded-lg shadow-md';
+            dayPanel.dataset.dayIndex = dayIndex;
+
+            const isCollapsed = localStorage.getItem(`day-${dayIndex}-collapsed`) === 'true';
+
+            dayPanel.innerHTML = `
+                <div class="day-header ${isCollapsed ? 'collapsed' : ''}" data-day-index="${dayIndex}">
+                    <div class="day-title">
+                        <i class="fas fa-chevron-down"></i>
+                        <span>Day ${dayIndex + 1}</span>
+                    </div>
+                    <div class="day-header-actions">
+                        <button class="add-item-to-day-btn" data-day-index="${dayIndex}" title="Add Saved Place"><i class="fas fa-plus-circle"></i></button>
+                        <button class="remove-day-btn" data-day-index="${dayIndex}" title="Remove Day"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="day-content ${isCollapsed ? 'collapsed' : ''}">
+                    <div class="day-timeline" data-day-index="${dayIndex}">
+                        <!-- Itinerary items will be appended here -->
+                    </div>
+                    <div class="day-summary">
+                        <div class="budget-summary"><i class="fas fa-money-bill-wave"></i> Day Budget: <span class="day-total-cost">₹0.00</span></div>
+                        <div class="weather-summary"><i class="fas fa-cloud-sun"></i> Weather: <span class="day-weather-text">Loading...</span></div>
+                        <div class="weather-warning" style="display: none;"></div>
+                        <div class="emoji-strip"></div>
+                    </div>
+                </div>
+            `;
+
+            const dayHeader = dayPanel.querySelector('.day-header');
+            const dayContent = dayPanel.querySelector('.day-content');
+            const dayTimeline = dayPanel.querySelector('.day-timeline');
+
+            dayHeader.addEventListener('click', (e) => {
+                if (!e.target.closest('.day-header-actions')) { // Don't collapse if action button clicked
+                    const isCurrentlyCollapsed = dayContent.classList.contains('collapsed');
+                    dayContent.classList.toggle('collapsed');
+                    dayHeader.classList.toggle('collapsed');
+                    localStorage.setItem(`day-${dayIndex}-collapsed`, !isCurrentlyCollapsed);
+                }
+            });
+
+            dayPanel.querySelector('.add-item-to-day-btn').addEventListener('click', (e) => {
+                const dayIdx = parseInt(e.currentTarget.dataset.dayIndex);
+                // For simplicity, this button could open a modal with saved places or just add a placeholder
+                // For now, let's just log and suggest using drag-and-drop.
+                console.log(`Add item to Day ${dayIdx + 1} clicked. Please drag from Saved Places.`);
+                // Alternatively, you could implement a small modal here to select a saved place.
+            });
+
+            dayPanel.querySelector('.remove-day-btn').addEventListener('click', async (e) => {
+                const dayIdx = parseInt(e.currentTarget.dataset.dayIndex);
+                const confirmed = await showConfirmation('Remove Day', `Are you sure you want to remove Day ${dayIdx + 1} and all its activities?`);
+                if (confirmed) {
+                    removeDay(dayIdx);
+                }
+            });
+
+            // Drag-and-drop for timeline
+            dayTimeline.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Allow drop
+                dayTimeline.classList.add('drag-over');
+                const afterElement = getDragAfterElement(dayTimeline, e.clientY);
+                const draggable = currentDraggedElement;
+                if (draggable && draggable.dataset.type === 'itinerary-item' && draggable.closest('.day-timeline') === dayTimeline) {
+                    // Reordering within the same day
+                    if (afterElement == null) {
+                        dayTimeline.appendChild(draggable);
+                    } else {
+                        dayTimeline.insertBefore(draggable, afterElement);
+                    }
+                }
+            });
+
+            dayTimeline.addEventListener('dragleave', () => {
+                dayTimeline.classList.remove('drag-over');
+            });
+
+            dayTimeline.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dayTimeline.classList.remove('drag-over');
+
+                if (!currentDraggedElement || !currentDraggedData) return;
+
+                const targetDayIndex = parseInt(dayTimeline.dataset.dayIndex);
+                const afterElement = getDragAfterElement(dayTimeline, e.clientY);
+                const targetPlaceIndex = afterElement ? parseInt(afterElement.dataset.placeIndex) : tripPlan.days[targetDayIndex].length;
+
+                if (currentDraggedElement.dataset.type === 'place') { // Dropped from Saved Places
+                    addPlaceToItinerary(currentDraggedData, targetDayIndex, targetPlaceIndex);
+                } else if (currentDraggedElement.dataset.type === 'itinerary-item') { // Reordering or moving between days
+                    const sourceDayIndex = parseInt(currentDraggedElement.dataset.dayIndex);
+                    const sourcePlaceIndex = parseInt(currentDraggedElement.dataset.placeIndex);
+                    reorderPlaceInItinerary(sourceDayIndex, sourcePlaceIndex, targetDayIndex, targetPlaceIndex);
+                }
+            });
+
+            // Append existing places
+            places.forEach((place, placeIndex) => {
+                dayTimeline.appendChild(renderItineraryItem(place, dayIndex, placeIndex));
+            });
+
+            return dayPanel;
+        }
+
+        /**
+         * Determines where to insert a dragged element in a list.
+         * @param {HTMLElement} container - The container element (e.g., day-timeline).
+         * @param {number} y - The Y coordinate of the drag event.
+         * @returns {HTMLElement|null} The element to insert after, or null if at the end.
+         */
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.itinerary-item:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: -Infinity }).element;
+        }
+
+
+        /**
+         * Renders the entire trip plan.
+         */
+        function renderTripPlan() {
+            itineraryTimeline.innerHTML = ''; // Clear existing days
+            tripPlan.days.forEach((day, index) => {
+                itineraryTimeline.appendChild(renderDayPanel(index, day));
+            });
+
+            renderSavedPlaces();
+            updateAllCalculations(); // Update map, budget, weather, recommendations
+            updateHistoryButtons();
+        }
+
+        /**
+         * Renders the saved places list.
+         */
+        function renderSavedPlaces() {
+            savedPlacesList.innerHTML = '';
+            mobileSavedPlacesList.innerHTML = '';
+            if (tripPlan.savedPlaces.length === 0) {
+                savedPlacesList.innerHTML = '<p class="text-sm text-gray-600">No saved places yet. Search and add some!</p>';
+                mobileSavedPlacesList.innerHTML = '<p class="text-sm text-gray-600">No saved places yet. Search and add some!</p>';
+            } else {
+                tripPlan.savedPlaces.forEach(place => {
+                    savedPlacesList.appendChild(renderPlaceCard(place, true));
+                    mobileSavedPlacesList.appendChild(renderPlaceCard(place, true));
+                });
+            }
+        }
+
+        /**
+         * Adds a new day to the trip plan.
+         */
+        function addNewDay() {
+            saveTripState();
+            tripPlan.days.push([]);
+            renderTripPlan();
+        }
+
+        /**
+         * Removes a day from the trip plan.
+         * @param {number} dayIndex - The index of the day to remove.
+         */
+        function removeDay(dayIndex) {
+            saveTripState();
+            tripPlan.days.splice(dayIndex, 1);
+            renderTripPlan();
+        }
+
+        /**
+         * Adds a place to the itinerary for a specific day.
+         * @param {Object} place - The place object to add.
+         * @param {number} dayIndex - The index of the day.
+         * @param {number} [targetPlaceIndex] - Optional index to insert at.
+         */
+        function addPlaceToItinerary(place, dayIndex, targetPlaceIndex = -1) {
+            saveTripState();
+            const placeCopy = { ...place, cost: 0, category: 'other' }; // Ensure new item has default cost/category
+            if (targetPlaceIndex === -1 || targetPlaceIndex >= tripPlan.days[dayIndex].length) {
+                tripPlan.days[dayIndex].push(placeCopy);
+            } else {
+                tripPlan.days[dayIndex].splice(targetPlaceIndex, 0, placeCopy);
+            }
+            renderTripPlan();
+        }
+
+        /**
+         * Removes a place from the itinerary.
+         * @param {number} dayIndex - The index of the day.
+         * @param {number} placeIndex - The index of the place within the day.
+         */
+        function removePlaceFromItinerary(dayIndex, placeIndex) {
+            saveTripState();
+            tripPlan.days[dayIndex].splice(placeIndex, 1);
+            renderTripPlan();
+        }
+
+        /**
+         * Reorders a place within the itinerary (same day or different day).
+         * @param {number} sourceDayIndex - Original day index.
+         * @param {number} sourcePlaceIndex - Original place index.
+         * @param {number} targetDayIndex - New day index.
+         * @param {number} targetPlaceIndex - New place index.
+         */
+        function reorderPlaceInItinerary(sourceDayIndex, sourcePlaceIndex, targetDayIndex, targetPlaceIndex) {
+            saveTripState();
+            const [movedPlace] = tripPlan.days[sourceDayIndex].splice(sourcePlaceIndex, 1);
+
+            if (targetPlaceIndex === -1 || targetPlaceIndex > tripPlan.days[targetDayIndex].length) {
+                tripPlan.days[targetDayIndex].push(movedPlace);
+            } else {
+                // Adjust targetPlaceIndex if moving within the same day and moving an item "down"
+                if (sourceDayIndex === targetDayIndex && sourcePlaceIndex < targetPlaceIndex) {
+                    tripPlan.days[targetDayIndex].splice(targetPlaceIndex - 1, 0, movedPlace);
+                } else {
+                    tripPlan.days[targetDayIndex].splice(targetPlaceIndex, 0, movedPlace);
+                }
+            }
+            renderTripPlan();
+        }
+
+        /**
+         * Adds a place to the saved places list.
+         * @param {Object} place - The place object to save.
+         */
+        function addPlaceToSaved(place) {
+            if (!tripPlan.savedPlaces.some(p => p.id === place.id)) {
+                tripPlan.savedPlaces.push(place);
+                renderSavedPlaces();
+                saveTripState();
+            }
+        }
+
+        /**
+         * Removes a place from the saved places list.
+         * @param {string} placeId - The ID of the place to remove.
+         */
+        function removeSavedPlace(placeId) {
+            saveTripState();
+            tripPlan.savedPlaces = tripPlan.savedPlaces.filter(p => p.id !== placeId);
+            renderSavedPlaces();
+        }
+
+        /**
+         * Displays place details in a modal.
+         * @param {Object} place - The place object.
+         */
+        function showPlaceDetails(place) {
+            placeDetailsName.textContent = place.name;
+            placeDetailsImage.src = place.imageUrl || `https://placehold.co/300x200/cccccc/333333?text=${encodeURIComponent(place.name.substring(0, 15))}`;
+            placeDetailsImage.onerror = () => { placeDetailsImage.src = `https://placehold.co/300x200/cccccc/333333?text=No+Image`; }; // Fallback
+            placeDetailsRating.innerHTML = `Rating: ${place.rating || 'N/A'} <i class="fas fa-star" style="color: gold;"></i>`;
+            placeDetailsDescription.textContent = place.description || 'No description available.';
+            openModal('placeDetailsModal');
+        }
+
+        // --- Google Maps Integration (Mocked API Key) ---
+        function initMap() {
+            // Check if google.maps is defined before initializing
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                console.warn("Google Maps API not loaded. Map functionality will be limited.");
+                mapDiv.textContent = "Google Maps API failed to load. Check your API key and network connection.";
+                return;
+            }
+
+            map = new google.maps.Map(mapDiv, {
+                center: { lat: 0, lng: 0 }, // Default center
+                zoom: 2,
+                mapId: 'DEMO_MAP_ID', // Use a demo map ID or your custom map ID
+            });
+            mapInfoWindow = new google.maps.InfoWindow();
+            updateMap(); // Initial map update
+        }
+
+        /**
+         * Updates the map with itinerary markers and polylines.
+         */
+        function updateMap() {
+            if (!map) {
+                console.warn("Map not initialized yet.");
+                return;
+            }
+
+            // Clear existing markers and polylines
+            mapMarkers.forEach(marker => marker.setMap(null));
+            mapPolylines.forEach(polyline => polyline.setMap(null));
+            mapMarkers = [];
+            mapPolylines = [];
+
+            let bounds = new google.maps.LatLngBounds();
+            let allCoords = [];
+
+            tripPlan.days.forEach((day, dayIndex) => {
+                let dayCoords = [];
+                day.forEach((place, placeIndex) => {
+                    if (place.lat && place.lng) {
+                        const position = { lat: place.lat, lng: place.lng };
+                        dayCoords.push(position);
+                        allCoords.push(position);
+
+                        const marker = new google.maps.Marker({
+                            position: position,
+                            map: map,
+                            title: `${place.name} (Day ${dayIndex + 1}, Stop ${placeIndex + 1})`,
+                            label: `${dayIndex + 1}.${placeIndex + 1}`,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: dayIndex % 2 === 0 ? '#4CAF50' : '#2196F3', // Color-code days
+                                fillOpacity: 0.9,
+                                strokeWeight: 1,
+                                strokeColor: '#fff',
+                            }
+                        });
+                        mapMarkers.push(marker);
+
+                        marker.addListener('click', () => {
+                            mapInfoWindow.setContent(`
+                                <strong>${place.name}</strong><br>
+                                Day ${dayIndex + 1}, Stop ${placeIndex + 1}<br>
+                                Type: ${place.type.replace(/_/g, ' ')}
+                            `);
+                            mapInfoWindow.open(map, marker);
+                        });
+
+                        bounds.extend(position);
+                    }
+                });
+
+                if (dayCoords.length > 1) {
+                    const polyline = new google.maps.Polyline({
+                        path: dayCoords,
+                        geodesic: true,
+                        strokeColor: dayIndex % 2 === 0 ? '#4CAF50' : '#2196F3',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 3,
+                    });
+                    polyline.setMap(map);
+                    mapPolylines.push(polyline);
+                }
+            });
+
+            if (allCoords.length > 0) {
+                map.fitBounds(bounds);
+                // If only one point, set a reasonable zoom
+                if (allCoords.length === 1) {
+                    map.setZoom(10);
+                }
+            } else {
+                // If no places, reset map to a default view
+                map.setCenter({ lat: 0, lng: 0 });
+                map.setZoom(2);
+            }
+        }
+
+        // Map Fullscreen Toggle
+        mapToggleFullscreenBtn.addEventListener('click', () => {
+            mapDiv.classList.toggle('fullscreen');
+            if (mapDiv.classList.contains('fullscreen')) {
+                mapToggleFullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                // Trigger map resize to fill new container
+                google.maps.event.trigger(map, 'resize');
+                map.fitBounds(map.getBounds()); // Refit bounds after resize
+            } else {
+                mapToggleFullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                google.maps.event.trigger(map, 'resize');
+                map.fitBounds(map.getBounds());
+            }
+        });
+
+        // --- Distance & Time Estimation ---
+        async function calculateTravelEstimates() {
+            for (let dayIndex = 0; dayIndex < tripPlan.days.length; dayIndex++) {
+                const day = tripPlan.days[dayIndex];
+                for (let i = 0; i < day.length; i++) {
+                    const place = day[i];
+                    const estimateElement = document.getElementById(`travelEstimate-${dayIndex}-${i}`);
+                    if (estimateElement) {
+                        estimateElement.style.display = 'none'; // Hide by default
+
+                        if (i > 0) {
+                            const prevPlace = day[i - 1];
+                            if (prevPlace.lat && prevPlace.lng && place.lat && place.lng) {
+                                try {
+                                    const result = await mockGoogleMapsDistanceMatrix(
+                                        { lat: prevPlace.lat, lng: prevPlace.lng },
+                                        { lat: place.lat, lng: place.lng }
+                                    );
+                                    estimateElement.querySelector('.distance').textContent = result.distance;
+                                    estimateElement.querySelector('.duration').textContent = result.duration;
+                                    estimateElement.style.display = 'flex';
+                                } catch (error) {
+                                    console.error(`Error fetching distance for Day ${dayIndex + 1}, Stop ${i + 1}:`, error);
+                                    estimateElement.querySelector('.distance').textContent = 'N/A';
+                                    estimateElement.querySelector('.duration').textContent = 'N/A';
+                                    estimateElement.style.display = 'flex';
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Budget & Activity Tracker ---
+        function updateBudgetTracker() {
+            let totalOverallCost = 0;
+            const categoryCosts = {}; // { food: 0, adventure: 0, ... }
+
+            tripPlan.days.forEach((day, dayIndex) => {
+                let dayTotalCost = 0;
+                day.forEach(place => {
+                    dayTotalCost += place.cost || 0;
+                    const category = place.category || 'other';
+                    categoryCosts[category] = (categoryCosts[category] || 0) + (place.cost || 0);
+                });
+                totalOverallCost += dayTotalCost;
+
+                // Update day-wise budget display
+                const dayPanel = document.querySelector(`.day-panel[data-day-index="${dayIndex}"]`);
+                if (dayPanel) {
+                    dayPanel.querySelector('.day-total-cost').textContent = `₹${dayTotalCost.toFixed(2)}`;
+                }
+            });
+
+            totalBudgetSpan.textContent = `₹${totalOverallCost.toFixed(2)}`;
+            mobileTotalBudget.textContent = `₹${totalOverallCost.toFixed(2)}`;
+
+            drawBudgetPieChart(categoryCosts);
+        }
+
+        /**
+         * Draws a pie chart for budget breakdown using Canvas API.
+         * @param {Object} categoryCosts - Object with category as key and total cost as value.
+         */
+        function drawBudgetPieChart(categoryCosts) {
+            const ctx = budgetPieChartCanvas.getContext('2d');
+            const mobileCtx = mobileBudgetPieChart.getContext('2d');
+
+            // Clear previous drawings
+            ctx.clearRect(0, 0, budgetPieChartCanvas.width, budgetPieChartCanvas.height);
+            mobileCtx.clearRect(0, 0, mobileBudgetPieChart.width, mobileBudgetPieChart.height);
+
+            const data = Object.values(categoryCosts);
+            const labels = Object.keys(categoryCosts);
+            const total = data.reduce((sum, val) => sum + val, 0);
+
+            if (total === 0) {
+                ctx.font = "14px Inter";
+                ctx.textAlign = "center";
+                ctx.fillText("No budget data yet", budgetPieChartCanvas.width / 2, budgetPieChartCanvas.height / 2);
+                mobileCtx.font = "14px Inter";
+                mobileCtx.textAlign = "center";
+                mobileCtx.fillText("No budget data yet", mobileBudgetPieChart.width / 2, mobileBudgetPieChart.height / 2);
+                return;
+            }
+
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+            let startAngle = 0;
+
+            [ctx, mobileCtx].forEach(context => {
+                const centerX = context.canvas.width / 2;
+                const centerY = context.canvas.height / 2;
+                const radius = Math.min(centerX, centerY) * 0.8;
+
+                data.forEach((value, i) => {
+                    const sliceAngle = (value / total) * 2 * Math.PI;
+                    const endAngle = startAngle + sliceAngle;
+
+                    context.beginPath();
+                    context.moveTo(centerX, centerY);
+                    context.arc(centerX, centerY, radius, startAngle, endAngle);
+                    context.closePath();
+                    context.fillStyle = colors[i % colors.length];
+                    context.fill();
+
+                    // Add labels to the slices
+                    const midAngle = startAngle + sliceAngle / 2;
+                    const labelX = centerX + radius * 0.7 * Math.cos(midAngle);
+                    const labelY = centerY + radius * 0.7 * Math.sin(midAngle);
+
+                    context.fillStyle = 'white';
+                    context.font = 'bold 10px Inter';
+                    context.textAlign = 'center';
+                    context.textBaseline = 'middle';
+                    if (value / total > 0.05) { // Only show label if slice is big enough
+                        context.fillText(`${labels[i]}`, labelX, labelY);
+                    }
+
+                    startAngle = endAngle;
+                });
+            });
+        }
+
+
+        // --- Weather Integration ---
+        async function updateWeatherForecast() {
+            weatherDisplay.innerHTML = '';
+            mobileWeatherDisplay.innerHTML = '';
+            if (tripPlan.days.length === 0) {
+                weatherDisplay.innerHTML = '<p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>';
+                mobileWeatherDisplay.innerHTML = '<p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>';
+                return;
+            }
+
+            for (let dayIndex = 0; dayIndex < tripPlan.days.length; dayIndex++) {
+                const day = tripPlan.days[dayIndex];
+                const dayWeatherSummary = document.querySelector(`.day-panel[data-day-index="${dayIndex}"] .day-weather-text`);
+                const dayWeatherWarning = document.querySelector(`.day-panel[data-day-index="${dayIndex}"] .weather-warning`);
+                let dayHasWarning = false;
+                let dayWeatherText = 'N/A';
+
+                if (day.length > 0 && day[0].lat && day[0].lng) {
+                    // Fetch weather for the first place of the day
+                    try {
+                        const weather = await mockOpenWeatherMap({ lat: day[0].lat, lng: day[0].lng }, dayIndex);
+                        dayWeatherText = `${weather.condition} (${weather.temperature})`;
+                        if (weather.warning) {
+                            dayWeatherWarning.textContent = weather.warning;
+                            dayWeatherWarning.style.display = 'block';
+                            dayHasWarning = true;
+                        } else {
+                            dayWeatherWarning.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching weather for Day ${dayIndex + 1}:`, error);
+                        dayWeatherText = 'Error fetching weather';
+                    }
+                }
+                if (dayWeatherSummary) dayWeatherSummary.textContent = dayWeatherText;
+            }
+
+            // Display a consolidated view in the right panel
+            let consolidatedWeatherHtml = '';
+            for (let dayIndex = 0; dayIndex < tripPlan.days.length; dayIndex++) {
+                const day = tripPlan.days[dayIndex];
+                if (day.length > 0 && day[0].lat && day[0].lng) {
+                    try {
+                        const weather = await mockOpenWeatherMap({ lat: day[0].lat, lng: day[0].lng }, dayIndex);
+                        consolidatedWeatherHtml += `
+                            <div class="p-2 rounded-lg mb-2" style="background-color: var(--background-dark);">
+                                <div class="font-semibold">Day ${dayIndex + 1}: ${day[0].name}</div>
+                                <div><i class="${getWeatherIcon(weather.condition)}"></i> ${weather.condition}, ${weather.temperature}</div>
+                                ${weather.warning ? `<div class="text-sm weather-warning"><i class="fas fa-exclamation-triangle"></i> ${weather.warning}</div>` : ''}
+                            </div>
+                        `;
+                    } catch (error) {
+                        consolidatedWeatherHtml += `
+                            <div class="p-2 rounded-lg mb-2" style="background-color: var(--background-dark);">
+                                <div class="font-semibold">Day ${dayIndex + 1}: ${day[0].name}</div>
+                                <div>Weather: Error fetching</div>
+                            </div>
+                        `;
+                    }
+                }
+            }
+            weatherDisplay.innerHTML = consolidatedWeatherHtml || '<p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>';
+            mobileWeatherDisplay.innerHTML = consolidatedWeatherHtml || '<p class="text-sm text-gray-600">Weather will appear here for itinerary stops.</p>';
+        }
+
+        // --- Smart Recommendations Engine ---
+        function updateRecommendations() {
+            recommendationsList.innerHTML = '';
+            mobileRecommendationsList.innerHTML = '';
+            const recommendedPlaces = [];
+            const existingPlaceIds = new Set();
+
+            tripPlan.days.forEach(day => {
+                day.forEach(place => existingPlaceIds.add(place.id));
+            });
+
+            // For simplicity, recommend from saved places that are not already in itinerary
+            // In a real app, this would involve more complex logic (e.g., proximity to last stop, user preferences)
+            tripPlan.savedPlaces.forEach(savedPlace => {
+                if (!existingPlaceIds.has(savedPlace.id)) {
+                    // Add some mock badges
+                    const badges = ['Underrated Gem', 'Popular Spot', 'Local Favorite'];
+                    const randomBadge = badges[Math.floor(Math.random() * badges.length)];
+                    recommendedPlaces.push({ ...savedPlace, badge: randomBadge });
+                }
+            });
+
+            if (recommendedPlaces.length === 0) {
+                recommendationsList.innerHTML = '<p class="text-sm text-gray-600">No new recommendations based on your saved places.</p>';
+                mobileRecommendationsList.innerHTML = '<p class="text-sm text-gray-600">No new recommendations based on your saved places.</p>';
+                return;
+            }
+
+            recommendedPlaces.forEach(recPlace => {
+                const card = document.createElement('div');
+                card.className = 'recommendation-card rounded-lg shadow-sm';
+                card.innerHTML = `
+                    <div class="font-semibold">${recPlace.name}</div>
+                    <div class="text-sm text-gray-600">${recPlace.type.replace(/_/g, ' ')}</div>
+                    ${recPlace.badge ? `<span class="badge">${recPlace.badge}</span>` : ''}
+                    <button class="add-btn" data-id="${recPlace.id}">Add to Itinerary</button>
+                `;
+                card.querySelector('.add-btn').addEventListener('click', () => {
+                    // Add to the first day, or prompt user to select day
+                    if (tripPlan.days.length === 0) {
+                        addNewDay();
+                    }
+                    addPlaceToItinerary(recPlace, 0); // Add to Day 1 for simplicity
+                    // After adding, re-render recommendations to remove the added item
+                    updateRecommendations();
+                });
+                recommendationsList.appendChild(card);
+                mobileRecommendationsList.appendChild(card.cloneNode(true)); // Clone for mobile
+            });
+        }
+
+        // --- Emoji Summary Strip ---
+        function updateEmojiSummaryStrip() {
+            tripPlan.days.forEach((day, dayIndex) => {
+                const emojiStrip = document.querySelector(`.day-panel[data-day-index="${dayIndex}"] .emoji-strip`);
+                if (emojiStrip) {
+                    const categoryEmojis = {};
+                    day.forEach(place => {
+                        const category = place.category || 'other';
+                        const emoji = getTypeEmoji(category); // Reusing getTypeEmoji for category
+                        categoryEmojis[emoji] = (categoryEmojis[emoji] || 0) + 1;
+                    });
+
+                    let stripHtml = '';
+                    for (const emoji in categoryEmojis) {
+                        stripHtml += `${emoji} `;
+                    }
+                    emojiStrip.textContent = stripHtml;
+                }
+            });
+        }
+
+        // --- Overall Update Function ---
+        function updateAllCalculations() {
+            updateMap();
+            calculateTravelEstimates();
+            updateBudgetTracker();
+            updateWeatherForecast();
+            updateRecommendations();
+            updateEmojiSummaryStrip();
+        }
+
+        // --- History (Undo/Redo) ---
+        function saveTripState() {
+            const currentState = JSON.parse(JSON.stringify(tripPlan)); // Deep copy
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1); // Truncate history if new action
+            }
+            history.push(currentState);
+            if (history.length > HISTORY_LIMIT) {
+                history.shift(); // Remove oldest state
+            }
+            historyIndex = history.length - 1;
+            updateHistoryButtons();
+            saveTripToFirestore(); // Save to Firestore on state change
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                tripPlan = JSON.parse(JSON.stringify(history[historyIndex]));
+                renderTripPlan();
+            }
+            updateHistoryButtons();
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                tripPlan = JSON.parse(JSON.stringify(history[historyIndex]));
+                renderTripPlan();
+            }
+            updateHistoryButtons();
+        }
+
+        function updateHistoryButtons() {
+            undoBtn.disabled = historyIndex <= 0;
+            redoBtn.disabled = historyIndex >= history.length - 1;
+        }
+
+        // --- Local Storage / Firestore Sync ---
+        const TRIP_DATA_COLLECTION = 'trip_plans'; // Firestore collection name
+
+        /**
+         * Saves the current trip plan to Firestore.
+         */
+        async function saveTripToFirestore() {
+            if (!isAuthReady || !userId || !db) {
+                console.warn("Firebase not ready or user not authenticated. Cannot save to Firestore. Saving to LocalStorage only.");
+                saveTripToLocalStorage();
+                return;
+            }
+            try {
+                // Use a fixed document ID for the user's main trip plan
+                const tripDocRef = doc(db, `artifacts/${appId}/users/${userId}/${TRIP_DATA_COLLECTION}`, 'my_trip_plan');
+                await setDoc(tripDocRef, {
+                    plan: JSON.stringify(tripPlan), // Stringify complex objects
+                    lastUpdated: new Date()
+                });
+                console.log("Trip plan saved to Firestore successfully!");
+            } catch (error) {
+                console.error("Error saving trip plan to Firestore:", error);
+                // Fallback to local storage if Firestore save fails
+                saveTripToLocalStorage();
+            }
+        }
+
+        /**
+         * Loads the trip plan from Firestore.
+         */
+        async function loadTripFromFirestore() {
+            if (!isAuthReady || !userId || !db) {
+                console.warn("Firebase not ready or user not authenticated. Cannot load from Firestore. Loading from LocalStorage only.");
+                loadTripFromLocalStorage();
+                return;
+            }
+            try {
+                const tripDocRef = doc(db, `artifacts/${appId}/users/${userId}/${TRIP_DATA_COLLECTION}`, 'my_trip_plan');
+                const docSnap = await getDoc(tripDocRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    tripPlan = JSON.parse(data.plan);
+                    console.log("Trip plan loaded from Firestore successfully!");
+                } else {
+                    console.log("No trip plan found in Firestore for this user. Starting with default.");
+                    // Fallback to local storage if no plan in Firestore
+                    loadTripFromLocalStorage();
+                }
+                // After loading, ensure history is initialized and UI updated
+                history = [JSON.parse(JSON.stringify(tripPlan))];
+                historyIndex = 0;
+                renderTripPlan();
+            } catch (error) {
+                console.error("Error loading trip plan from Firestore:", error);
+                // Fallback to local storage if Firestore load fails
+                loadTripFromLocalStorage();
+            }
+        }
+
+        /**
+         * Saves the current trip plan to LocalStorage.
+         */
+        function saveTripToLocalStorage() {
+            localStorage.setItem('tripMapperPlan', JSON.stringify(tripPlan));
+            console.log("Trip plan saved to LocalStorage.");
+        }
+
+        /**
+         * Loads the trip plan from LocalStorage.
+         */
+        function loadTripFromLocalStorage() {
+            const savedPlan = localStorage.getItem('tripMapperPlan');
+            if (savedPlan) {
+                tripPlan = JSON.parse(savedPlan);
+                console.log("Trip plan loaded from LocalStorage.");
+            } else {
+                console.log("No trip plan found in LocalStorage. Starting with default.");
+                // Initialize with a default day if no plan exists
+                if (tripPlan.days.length === 0) {
+                    tripPlan.days.push([]);
+                }
+            }
+            // After loading, ensure history is initialized and UI updated
+            history = [JSON.parse(JSON.stringify(tripPlan))];
+            historyIndex = 0;
+            renderTripPlan();
+        }
+
+        // Prompt user to save before closing/refreshing
+        window.addEventListener('beforeunload', (e) => {
+            // Check if there are unsaved changes (compare current state with last saved state in history)
+            if (history.length > 0 && JSON.stringify(tripPlan) !== JSON.stringify(history[historyIndex])) {
+                e.preventDefault(); // Standard for browsers to show confirmation
+                e.returnValue = ''; // Required for some browsers
+            }
+        });
+
+        // --- Download & Share Plan ---
+        downloadPdfBtn.addEventListener('click', () => {
+            const element = document.querySelector('.main-container'); // Capture the main content
+            const opt = {
+                margin: 0.5,
+                filename: 'trip_plan.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, logging: true, dpi: 192, letterRendering: true },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        });
+
+        shareTripBtn.addEventListener('click', () => {
+            const tripDataString = JSON.stringify(tripPlan);
+            // For simple sharing, we can encode it in a URL.
+            // For very large plans, consider saving to Firestore with a public ID and sharing that ID.
+            const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${btoa(tripDataString)}`;
+            shareLinkInput.value = shareUrl;
+
+            qrCodeContainer.innerHTML = ''; // Clear previous QR code
+            new QRCode(qrCodeContainer, {
+                text: shareUrl,
+                width: 128,
+                height: 128,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            openModal('shareTripModal');
+        });
+
+        function copyShareLink() {
+            shareLinkInput.select();
+            document.execCommand('copy');
+            // Provide visual feedback
+            const originalText = shareLinkInput.value;
+            shareLinkInput.value = 'Copied!';
+            setTimeout(() => {
+                shareLinkInput.value = originalText;
+            }, 1500);
+        }
+
+        // Handle loading from shared URL
+        function loadTripFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tripEncoded = urlParams.get('trip');
+            if (tripEncoded) {
+                try {
+                    const decodedTrip = atob(tripEncoded);
+                    const loadedPlan = JSON.parse(decodedTrip);
+                    showConfirmation('Load Shared Trip?', 'A trip plan was found in the URL. Do you want to load it? This will overwrite your current plan.')
+                        .then(confirmed => {
+                            if (confirmed) {
+                                tripPlan = loadedPlan;
+                                history = [JSON.parse(JSON.stringify(tripPlan))];
+                                historyIndex = 0;
+                                renderTripPlan();
+                                console.log("Trip plan loaded from URL.");
+                            }
+                        });
+                } catch (error) {
+                    console.error("Error decoding trip from URL:", error);
+                }
+            }
+        }
+
+
+        // --- Event Listeners ---
+        addDayBtn.addEventListener('click', addNewDay);
+        searchPlaceBtn.addEventListener('click', async () => {
+            const query = placeSearchInput.value.trim();
+            if (query) {
+                searchResultsDiv.innerHTML = '<p class="text-sm text-gray-600">Searching...</p>';
+                const results = await mockGooglePlacesAutocomplete(query);
+                searchResultsDiv.innerHTML = '';
+                if (results.length === 0) {
+                    searchResultsDiv.innerHTML = '<p class="text-sm text-gray-600">No results found.</p>';
+                } else {
+                    results.forEach(place => {
+                        const card = renderPlaceCard(place, false);
+                        const addBtn = document.createElement('button');
+                        addBtn.className = 'add-btn w-full p-2 mt-2 rounded-lg';
+                        addBtn.style.backgroundColor = 'var(--primary-color)';
+                        addBtn.style.color = 'white';
+                        addBtn.style.border = 'none';
+                        addBtn.style.cursor = 'pointer';
+                        addBtn.textContent = 'Add to Saved';
+                        addBtn.onclick = () => addPlaceToSaved(place);
+                        card.appendChild(addBtn);
+                        searchResultsDiv.appendChild(card);
+                    });
+                }
+            }
+        });
+
+        // Mobile drawer search
+        mobileSearchPlaceBtn.addEventListener('click', async () => {
+            const query = mobilePlaceSearchInput.value.trim();
+            if (query) {
+                mobileSearchResults.innerHTML = '<p class="text-sm text-gray-600">Searching...</p>';
+                const results = await mockGooglePlacesAutocomplete(query);
+                mobileSearchResults.innerHTML = '';
+                if (results.length === 0) {
+                    mobileSearchResults.innerHTML = '<p class="text-sm text-gray-600">No results found.</p>';
+                } else {
+                    results.forEach(place => {
+                        const card = renderPlaceCard(place, false);
+                        const addBtn = document.createElement('button');
+                        addBtn.className = 'add-btn w-full p-2 mt-2 rounded-lg';
+                        addBtn.style.backgroundColor = 'var(--primary-color)';
+                        addBtn.style.color = 'white';
+                        addBtn.style.border = 'none';
+                        addBtn.style.cursor = 'pointer';
+                        addBtn.textContent = 'Add to Saved';
+                        addBtn.onclick = () => addPlaceToSaved(place);
+                        card.appendChild(addBtn);
+                        mobileSearchResults.appendChild(card);
+                    });
+                }
+            }
+        });
+
+
+        saveTripBtn.addEventListener('click', () => {
+            saveTripState(); // This will trigger Firestore save
+            // Optionally, show a confirmation message
+            showConfirmation('Trip Saved!', 'Your trip plan has been saved successfully.').then(() => {});
+        });
+
+        loadTripBtn.addEventListener('click', () => {
+            showConfirmation('Load Trip?', 'Loading a trip will overwrite your current plan. Are you sure?')
+                .then(confirmed => {
+                    if (confirmed) {
+                        loadTripFromFirestore(); // This will try Firestore first, then LocalStorage
+                    }
+                });
+        });
+
+        undoBtn.addEventListener('click', undo);
+        redoBtn.addEventListener('click', redo);
+
+        aiSuggestBtn.addEventListener('click', async () => {
+            const city = aiSuggestionCityInput.value.trim();
+            if (city) {
+                const confirmed = await showConfirmation('Auto-fill Trip?', `This will generate a 3-day itinerary for ${city} and overwrite your current plan. Continue?`);
+                if (confirmed) {
+                    try {
+                        const newItinerary = await mockAIGenerateItinerary(city);
+                        tripPlan.days = newItinerary;
+                        saveTripState(); // Save the new state
+                        renderTripPlan();
+                        showConfirmation('Success!', `A 3-day itinerary for ${city} has been generated!`).then(() => {});
+                    } catch (error) {
+                        console.error("Failed to generate AI itinerary:", error);
+                        showConfirmation('Error', 'Failed to generate AI itinerary. Please try again or check console for details.').then(() => {});
+                    }
+                }
+            } else {
+                showConfirmation('Input Required', 'Please enter a city for AI itinerary suggestion.').then(() => {});
+            }
+        });
+
+        mobileAiSuggestBtn.addEventListener('click', async () => {
+            const city = mobileAiSuggestionCityInput.value.trim();
+            if (city) {
+                const confirmed = await showConfirmation('Auto-fill Trip?', `This will generate a 3-day itinerary for ${city} and overwrite your current plan. Continue?`);
+                if (confirmed) {
+                    try {
+                        const newItinerary = await mockAIGenerateItinerary(city);
+                        tripPlan.days = newItinerary;
+                        saveTripState(); // Save the new state
+                        renderTripPlan();
+                        showConfirmation('Success!', `A 3-day itinerary for ${city} has been generated!`).then(() => {});
+                    } catch (error) {
+                        console.error("Failed to generate AI itinerary:", error);
+                        showConfirmation('Error', 'Failed to generate AI itinerary. Please try again or check console for details.').then(() => {});
+                    }
+                }
+            } else {
+                showConfirmation('Input Required', 'Please enter a city for AI itinerary suggestion.').then(() => {});
+            }
+        });
+
+
+        // --- Mobile Drawer Logic ---
+        let isDrawerOpen = false;
+        drawerHandle.addEventListener('click', toggleMobileDrawer);
+        drawerHandle.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            drawerHandle.startY = e.touches[0].clientY;
+            drawerHandle.startTop = mobileDrawer.getBoundingClientRect().top;
+            drawerHandle.classList.add('grabbing');
+        });
+
+        drawerHandle.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            if (drawerHandle.startY !== undefined) {
+                const currentY = e.touches[0].clientY;
+                let newTop = drawerHandle.startTop + (currentY - drawerHandle.startY);
+                const maxTop = window.innerHeight * 0.5; // Max height is 50vh
+                const minTop = window.innerHeight - mobileDrawer.offsetHeight; // Fully open
+
+                newTop = Math.max(minTop, Math.min(maxTop, newTop));
+                mobileDrawer.style.transform = `translateY(${newTop - window.innerHeight + mobileDrawer.offsetHeight}px)`; // Adjust for translateY
+            }
+        });
+
+        drawerHandle.addEventListener('touchend', () => {
+            drawerHandle.startY = undefined;
+            drawerHandle.startTop = undefined;
+            drawerHandle.classList.remove('grabbing');
+
+            // Snap to open or closed state based on position
+            const drawerHeight = mobileDrawer.offsetHeight;
+            const currentY = mobileDrawer.getBoundingClientRect().top;
+            const threshold = window.innerHeight - drawerHeight * 0.7; // If more than 70% open, snap open
+
+            if (currentY < threshold) {
+                openMobileDrawer();
+            } else {
+                closeMobileDrawer();
+            }
+        });
+
+
+        function toggleMobileDrawer() {
+            if (isDrawerOpen) {
+                closeMobileDrawer();
+            } else {
+                openMobileDrawer();
+            }
+        }
+
+        function openMobileDrawer() {
+            mobileDrawer.classList.add('open');
+            isDrawerOpen = true;
+        }
+
+        function closeMobileDrawer() {
+            mobileDrawer.classList.remove('open');
+            isDrawerOpen = false;
+        }
+
+        // --- Initial Load ---
+        window.addEventListener('load', () => {
+            // Firebase init and load handled by initFirebase()
+            // If Firebase fails or is not used, loadTripFromLocalStorage will be called as fallback.
+            loadTripFromUrl(); // Check for shared trip in URL
+        });
+
+    </script>
+</body>
+</html>
+�
